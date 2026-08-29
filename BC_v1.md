@@ -263,14 +263,21 @@ sudo chown -R www-data:www-data /var/cache/nginx /var/www/mirror
 
 Каталог `/var/www/acme` нужен acme.sh для продления (webroot), когда порт 80 займёт nginx. Certbot не ставить.
 
-В `/etc/nginx/nginx.conf` внутри `http { ... }`:
+В `/etc/nginx/nginx.conf` директива `worker_rlimit_nofile` живёт **только в корне файла** (рядом с `worker_processes`), не внутри `http { }`. Остальное — внутрь `http { }`.
+
+Корень файла, сразу после `worker_processes auto;`:
+
+```nginx
+worker_rlimit_nofile 1048576;
+```
+
+Внутри `http { ... }`:
 
 ```nginx
 proxy_cache_path /var/cache/nginx/mirror levels=1:2 keys_zone=mirror:100m
                  max_size=10g inactive=30d use_temp_path=off;
 proxy_temp_path  /var/cache/nginx/tmp;
 
-worker_rlimit_nofile 1048576;
 server_tokens off;
 
 map $remote_addr $ip_anon {
@@ -795,4 +802,4 @@ DNS: `full:cdn.vc01zbbxr.tech` через `77.88.8.8`. Routing: `udp/443 → blo
 
 ---
 
-Изменения этой редакции: **один ACME 3x-ui** на `vc01zbbxr.tech` + `www` + `origin`; nginx (зеркало и origin) читает `/root/cert/vc01zbbxr.tech/`; certbot убран; продление через acme.sh webroot + reload nginx. Сертификат `cdn.` по-прежнему в Certificate Manager. Остальное как в ред. 5: **8080 открыт всем**, **SSH без обязательного ключа**, **подписка OFF**, полный порядок CDN.
+Изменения этой редакции: **один ACME 3x-ui** на `vc01zbbxr.tech` + `www` + `origin`; nginx (зеркало и origin) читает `/root/cert/vc01zbbxr.tech/`; certbot убран; продление через acme.sh webroot + reload nginx. `worker_rlimit_nofile` — в корне `nginx.conf`, не в `http`. Сертификат `cdn.` по-прежнему в Certificate Manager. Остальное как в ред. 5: **8080 открыт всем**, **SSH без обязательного ключа**, **подписка OFF**, полный порядок CDN.
