@@ -576,22 +576,91 @@ curl -I https://vc01zbbxr.tech/
 
 ## 11. Инбаунд `protocol.1`
 
-Inbounds → Add Inbound.
+Слушатель Xray — `127.0.0.1:10443`, TLS нет: его снимают nginx и CDN. Сертификат панели в этот инбаунд **не** подставлять: при `security: none` панель карточку не сохранит.
 
-| Поле | Значение |
-|---|---|
-| Remark / Tag | **protocol.1** |
-| Protocol | VLESS |
-| Listen / Port | `127.0.0.1` / `10443` |
-| Network / Mode | **xhttp** / `packet-up` |
-| Path | `/healthcheck.api/` |
-| Host | пусто |
-| Security | **none** |
-| scMaxBufferedPosts | 30 |
-| Flow | пусто |
-| Certificate | сертификат панели: `/root/cert/vc01zbbxr.tech/fullchain.pem` + `privkey.pem` (выбор в UI 3x-ui). На слушателе **Security = none** — TLS снимает nginx этими файлами. Поле сертификата нужно, чтобы панель знала тот же ACME; не включайте TLS на этом инбаунде, пока nginx проксирует `http://127.0.0.1:10443`. |
+Inbounds → Add Inbound → вставь JSON целиком (клиентов на этом шаге ещё нет):
 
-**External Proxy** (Stream → ON → Add): Address `cdn.vc01zbbxr.tech`, Port `443`, Force TLS.
+```json
+{
+  "listen": "127.0.0.1",
+  "port": 10443,
+  "protocol": "vless",
+  "tag": "protocol.1",
+  "settings": {
+    "clients": [],
+    "decryption": "none",
+    "encryption": "none"
+  },
+  "sniffing": {
+    "enabled": false
+  },
+  "streamSettings": {
+    "network": "xhttp",
+    "xhttpSettings": {
+      "path": "/healthcheck.api/",
+      "host": "",
+      "mode": "packet-up",
+      "xPaddingBytes": "100-1000",
+      "xPaddingObfsMode": false,
+      "xPaddingKey": "",
+      "xPaddingHeader": "",
+      "xPaddingPlacement": "",
+      "xPaddingMethod": "",
+      "sessionIDPlacement": "",
+      "sessionIDKey": "",
+      "sessionIDTable": "",
+      "sessionIDLength": "",
+      "seqPlacement": "",
+      "seqKey": "",
+      "uplinkDataPlacement": "",
+      "uplinkDataKey": "",
+      "scMaxEachPostBytes": "",
+      "noSSEHeader": false,
+      "scMaxBufferedPosts": 30,
+      "scStreamUpServerSecs": "20-80",
+      "serverMaxHeaderBytes": 0,
+      "uplinkHTTPMethod": "GET",
+      "headers": {},
+      "scMinPostsIntervalMs": "",
+      "uplinkChunkSize": 0,
+      "noGRPCHeader": false,
+      "xmux": {
+        "maxConcurrency": "16-32",
+        "maxConnections": 0,
+        "cMaxReuseTimes": "100",
+        "hMaxRequestTimes": "600-900",
+        "hMaxReusableSecs": "1800-3000",
+        "hKeepAlivePeriod": 0
+      },
+      "enableXmux": true
+    },
+    "security": "none",
+    "sockopt": {
+      "tcpKeepAliveInterval": 20,
+      "tcpKeepAliveIdle": 60,
+      "tcpUserTimeout": 60000,
+      "tcpcongestion": "bbr",
+      "acceptProxyProtocol": false,
+      "tcpFastOpen": false,
+      "mark": 0,
+      "tproxy": "off",
+      "tcpMptcp": false,
+      "penetrate": false,
+      "domainStrategy": "AsIs",
+      "tcpMaxSeg": 0,
+      "dialerProxy": "",
+      "V6Only": false,
+      "tcpWindowClamp": 0,
+      "interface": "",
+      "trustedXForwardedFor": [],
+      "addressPortStrategy": "none",
+      "customSockopt": []
+    }
+  }
+}
+```
+
+Этот JSON в `config.json` Xray **не** содержит External Proxy (панель хранит его отдельно для ссылок). После сохранения: Stream → External Proxy → Add: Address `cdn.vc01zbbxr.tech`, Port `443`, Force TLS.
 
 Save → Restart Xray.
 
@@ -864,4 +933,4 @@ DNS: `full:cdn.vc01zbbxr.tech` через `77.88.8.8`. Routing: `udp/443 → blo
 
 ---
 
-Изменения этой редакции: подписка **OFF** — пункт 10, сразу перед инбаундом. UFW выключается в пункте 2, правила — в пункте 14. Один ACME 3x-ui на три имени; nginx читает `/root/cert/vc01zbbxr.tech/`.
+Изменения этой редакции: пункт 11 — готовый JSON инбаунда (`packet-up`, GET, `security: none`), без сертификата на слушателе. Подписка OFF — пункт 10. UFW выключается в пункте 2, правила — в пункте 14.
