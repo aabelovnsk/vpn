@@ -246,7 +246,17 @@ mkdir -p /root/cert/vc01zbbxr.tech
 | Certificate public key file path | `/root/cert/vc01zbbxr.tech/fullchain.pem` |
 | Certificate private key file path | `/root/cert/vc01zbbxr.tech/privkey.pem` |
 
-Перезапуск панели: `x-ui restart`. Проверка: `https://vc01zbbxr.tech:8080/<секретный_путь>` без ошибки сертификата (имя apex есть в SAN).
+Перезапуск панели: `x-ui restart`.
+
+**Обязательная проверка имён в сертификате** (меню 3x-ui выпускает только apex — без трёх `-d` шаг с `origin.` позже упадёт):
+
+```bash
+openssl x509 -in /root/cert/vc01zbbxr.tech/fullchain.pem -noout -subject -ext subjectAltName
+```
+
+В выводе должны быть **все три**: `vc01zbbxr.tech`, `www.vc01zbbxr.tech`, `origin.vc01zbbxr.tech`. Если `origin.` нет — повторите `--issue` с тремя `-d` и `--install-cert` выше. Не идите дальше, пока SAN не полный.
+
+Панель: `https://vc01zbbxr.tech:8080/<секретный_путь>` без ошибки сертификата (имя apex есть в SAN).
 
 Дальше nginx в пунктах 7–9 указывает **на эту же директорию**, отдельный Let's Encrypt для зеркала не выпускаем.
 
@@ -525,11 +535,14 @@ sudo nginx -t && sudo systemctl reload nginx
 Проверка origin **до** создания CDN:
 
 ```bash
+openssl x509 -in /root/cert/vc01zbbxr.tech/fullchain.pem -noout -ext subjectAltName
 curl -I https://origin.vc01zbbxr.tech/
 curl -I https://vc01zbbxr.tech/
 ```
 
 Ожидается 200 и HTML визитки. Документация требует, чтобы источник был доступен из интернета до создания ресурса.
+
+Если curl пишет `SSL: no alternative certificate subject name matches … origin.vc01zbbxr.tech` — в сертификате нет имени origin (часто после SSL только через меню 3x-ui). nginx уже занимает порт 80, поэтому **не** `--standalone`. Повторите блок `--issue --webroot` выше (три `-d`), затем `sudo systemctl reload nginx` и снова `curl -I`.
 
 ---
 
