@@ -148,9 +148,16 @@ MX на `vc01zbbxr.tech` не заводить.
 Проверка:
 
 ```bash
+dig +short vc01zbbxr.tech A
+dig +short www.vc01zbbxr.tech A
 dig +short origin.vc01zbbxr.tech A
-# должен вернуть NODE_IP
+dig +short www.vc01zbbxr.tech AAAA
+dig +short origin.vc01zbbxr.tech AAAA
 ```
+
+Все три A должны быть **NODE_IP**. Записей **AAAA не должно быть**, пока у ВМ нет рабочего IPv6: Let's Encrypt пойдёт на AAAA и получит timeout.
+
+**Группа безопасности Yandex Cloud (сразу, не ждать пункта 13):** входящие TCP **22, 80, 443, 8080** с `0.0.0.0/0`. HTTP-01 (выпуск сертификата) ходит на порт **80 с интернета**. Если открыт только 443, `curl https://vc01zbbxr.tech/` будет 200, а acme.sh на `www`/`origin` упадёт с `Timeout during connect (likely firewall problem)`.
 
 ---
 
@@ -208,7 +215,7 @@ Certbot на ВМ **не ставим**. 3x-ui ставит acme.sh и выпу�
 
 Имена в одном сертификате (SAN): `vc01zbbxr.tech`, `www.vc01zbbxr.tech`, `origin.vc01zbbxr.tech`. Имя `cdn.` сюда **не** включать.
 
-Порт **80 должен быть свободен** (nginx ещё не установлен). A-записи из пункта 4 уже должны указывать на NODE_IP.
+Порт **80 должен быть свободен** (nginx ещё не установлен) и **открыт с интернета** в группе безопасности ВМ. A-записи из пункта 4 уже должны указывать на NODE_IP.
 
 ```bash
 # acme.sh появляется при первом SSL в меню 3x-ui; если его ещё нет:
@@ -532,6 +539,8 @@ sudo nginx -t && sudo systemctl reload nginx
   --reloadcmd "systemctl reload nginx ; x-ui restart"
 ```
 
+`--install-cert` запускайте **только если** `--issue` закончился успехом (в логе есть Cert success / «Installing full chain», без `Invalid status`). Иначе acme.sh снова положит старый сертификат только на `vc01zbbxr.tech`.
+
 Проверка origin **до** создания CDN:
 
 ```bash
@@ -542,7 +551,15 @@ curl -I https://vc01zbbxr.tech/
 
 Ожидается 200 и HTML визитки. Документация требует, чтобы источник был доступен из интернета до создания ресурса.
 
-Если curl пишет `SSL: no alternative certificate subject name matches … origin.vc01zbbxr.tech` — в сертификате нет имени origin (часто после SSL только через меню 3x-ui). nginx уже занимает порт 80, поэтому **не** `--standalone`. Повторите блок `--issue --webroot` выше (три `-d`), затем `sudo systemctl reload nginx` и снова `curl -I`.
+**Если `--issue` пишет `Timeout during connect (likely firewall problem)`** на `www` или `origin`: Let's Encrypt не смог открыть `http://ЭТО_ИМЯ/.well-known/acme-challenge/…` с интернета. HTTPS на 443 тут ни при чём.
+
+1. Группа безопасности ВМ: входящий **TCP 80** с `0.0.0.0/0` (и 443).  
+2. На ВМ: `sudo ufw status` — если active, должно быть `80/tcp ALLOW`. Если нет: `sudo ufw allow 80/tcp && sudo ufw allow 443/tcp`.  
+3. DNS: `dig +short www.vc01zbbxr.tech A` и `origin.vc01zbbxr.tech A` = NODE_IP; AAAA пусто.  
+4. С **другого** компьютера или телефона (не с самой ВМ): открыть `http://www.vc01zbbxr.tech/` — должен быть редирект или ответ nginx, не вечное кручение.  
+5. Снова `--issue --webroot` с тремя `-d`. Потом `--install-cert`.
+
+**Если curl пишет `no alternative certificate subject name matches … origin`** — в сертификате нет origin. nginx уже на 80, **не** `--standalone`. Сначала добейтесь успешного `--issue` (SAN с тремя именами), затем `--install-cert` и `sudo systemctl reload nginx`.
 
 ---
 
