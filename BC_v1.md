@@ -326,7 +326,21 @@ User-agent: *
 Disallow: /
 ```
 
-Плюс `favicon.ico`.
+`/var/www/mirror/favicon.ico` — иконка во вкладке браузера. Без файла браузер запросит `/favicon.ico` и получит 404; для маскировки зеркала нужна настоящая иконка Debian:
+
+```bash
+sudo curl -fsS -o /var/www/mirror/favicon.ico https://www.debian.org/favicon.ico
+sudo chown www-data:www-data /var/www/mirror/favicon.ico
+ls -l /var/www/mirror/favicon.ico
+```
+
+nginx уже отдаёт этот файл (`location = /favicon.ico`). После того как заработает HTTPS:
+
+```bash
+curl -I https://vc01zbbxr.tech/favicon.ico
+```
+
+Ожидается `200`. На этом шаге достаточно, что файл лежит на диске.
 
 Сниппет `/etc/nginx/snippets/debian-mirror.conf`:
 
@@ -738,7 +752,7 @@ curl -sI https://origin.vc01zbbxr.tech/healthcheck.api/
 - [ ] A-записи зеркала и origin  
 - [ ] SAN ACME панели на 3 имени → `/root/cert/vc01zbbxr.tech/`
 - [ ] nginx ssl_* указывает на сертификат панели (не certbot)  
-- [ ] визитка и кеш зеркала  
+- [ ] визитка, `favicon.ico` с debian.org, кеш зеркала  
 - [ ] `cdn-allow.conf` + cron ACL  
 - [ ] инбаунд **protocol.1**, xhttp, packet-up, `127.0.0.1:10443`  
 - [ ] External Proxy: `cdn.vc01zbbxr.tech:443`  
@@ -802,4 +816,4 @@ DNS: `full:cdn.vc01zbbxr.tech` через `77.88.8.8`. Routing: `udp/443 → blo
 
 ---
 
-Изменения этой редакции: **один ACME 3x-ui** на `vc01zbbxr.tech` + `www` + `origin`; nginx (зеркало и origin) читает `/root/cert/vc01zbbxr.tech/`; certbot убран; продление через acme.sh webroot + reload nginx. `worker_rlimit_nofile` — в корне `nginx.conf`, не в `http`. Сертификат `cdn.` по-прежнему в Certificate Manager. Остальное как в ред. 5: **8080 открыт всем**, **SSH без обязательного ключа**, **подписка OFF**, полный порядок CDN.
+Изменения этой редакции: **один ACME 3x-ui** на `vc01zbbxr.tech` + `www` + `origin`; nginx (зеркало и origin) читает `/root/cert/vc01zbbxr.tech/`; certbot убран; продление через acme.sh webroot + reload nginx. `worker_rlimit_nofile` — в корне `nginx.conf`, не в `http`. `favicon.ico` зеркала скачивается с `https://www.debian.org/favicon.ico`. Сертификат `cdn.` по-прежнему в Certificate Manager. Остальное как в ред. 5: **8080 открыт всем**, **SSH без обязательного ключа**, **подписка OFF**, полный порядок CDN.
