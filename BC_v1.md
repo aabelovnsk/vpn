@@ -384,7 +384,10 @@ EOF
 sudo chmod +x /usr/local/bin/cdn-acl-update.sh
 sudo /usr/local/bin/cdn-acl-update.sh
 
-echo '17 4 * * 1 root /usr/local/bin/cdn-acl-update.sh >/dev/null 2>&1' | sudo tee /etc/cron.d/cdn-acl
+# файл /etc/cron.d/cdn-acl (не каталог). Команду не разрывать.
+sudo tee /etc/cron.d/cdn-acl >/dev/null <<'EOF'
+17 4 * * 1 root /usr/local/bin/cdn-acl-update.sh >/dev/null 2>&1
+EOF
 ```
 
 Файл должен существовать **до** `include` в конфиге nginx.
@@ -719,7 +722,9 @@ fi
 systemctl reload nginx
 EOF
 sudo chmod +x /usr/local/bin/mirror-cache-weekly.sh
-echo '30 4 * * 1 root /usr/local/bin/mirror-cache-weekly.sh >/dev/null 2>&1' | sudo tee /etc/cron.d/mirror-cache
+sudo tee /etc/cron.d/mirror-cache >/dev/null <<'EOF'
+30 4 * * 1 root /usr/local/bin/mirror-cache-weekly.sh >/dev/null 2>&1
+EOF
 ```
 
 ---
@@ -816,4 +821,4 @@ DNS: `full:cdn.vc01zbbxr.tech` через `77.88.8.8`. Routing: `udp/443 → blo
 
 ---
 
-Изменения этой редакции: **один ACME 3x-ui** на `vc01zbbxr.tech` + `www` + `origin`; nginx (зеркало и origin) читает `/root/cert/vc01zbbxr.tech/`; certbot убран; продление через acme.sh webroot + reload nginx. `worker_rlimit_nofile` — в корне `nginx.conf`, не в `http`. `favicon.ico` зеркала скачивается с `https://www.debian.org/favicon.ico`. Сертификат `cdn.` по-прежнему в Certificate Manager. Остальное как в ред. 5: **8080 открыт всем**, **SSH без обязательного ключа**, **подписка OFF**, полный порядок CDN.
+Изменения этой редакции: **один ACME 3x-ui** на `vc01zbbxr.tech` + `www` + `origin`; nginx (зеркало и origin) читает `/root/cert/vc01zbbxr.tech/`; certbot убран; продление через acme.sh webroot + reload nginx. `worker_rlimit_nofile` — в корне `nginx.conf`, не в `http`. `favicon.ico` зеркала скачивается с `https://www.debian.org/favicon.ico`. Cron ACL пишется в **файл** `/etc/cron.d/cdn-acl` через `tee … <<'EOF'` (не разрывать путь). Сертификат `cdn.` по-прежнему в Certificate Manager. Остальное как в ред. 5: **8080 открыт всем**, **SSH без обязательного ключа**, **подписка OFF**, полный порядок CDN.
