@@ -410,11 +410,12 @@ server {
 
 `/etc/nginx/conf.d/10-mirror.conf`:
 
+Ubuntu 24.04 ставит nginx **1.24**: отдельной директивы `http2 on;` нет (она с 1.25.1). HTTP/2 включается параметром `listen`.
+
 ```nginx
 server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
-    http2 on;
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
     server_name vc01zbbxr.tech www.vc01zbbxr.tech;
 
     ssl_certificate     /root/cert/vc01zbbxr.tech/fullchain.pem;
@@ -449,9 +450,8 @@ server {
 
 ```nginx
 server {
-    listen 443 ssl default_server;
-    listen [::]:443 ssl default_server;
-    http2 on;
+    listen 443 ssl http2 default_server;
+    listen [::]:443 ssl http2 default_server;
     server_name origin.vc01zbbxr.tech;
 
     ssl_certificate     /root/cert/vc01zbbxr.tech/fullchain.pem;
@@ -821,4 +821,4 @@ DNS: `full:cdn.vc01zbbxr.tech` через `77.88.8.8`. Routing: `udp/443 → blo
 
 ---
 
-Изменения этой редакции: **один ACME 3x-ui** на `vc01zbbxr.tech` + `www` + `origin`; nginx (зеркало и origin) читает `/root/cert/vc01zbbxr.tech/`; certbot убран; продление через acme.sh webroot + reload nginx. `worker_rlimit_nofile` — в корне `nginx.conf`, не в `http`. `favicon.ico` зеркала скачивается с `https://www.debian.org/favicon.ico`. Cron ACL пишется в **файл** `/etc/cron.d/cdn-acl` через `tee … <<'EOF'` (не разрывать путь). Сертификат `cdn.` по-прежнему в Certificate Manager. Остальное как в ред. 5: **8080 открыт всем**, **SSH без обязательного ключа**, **подписка OFF**, полный порядок CDN.
+Изменения этой редакции: **один ACME 3x-ui** на `vc01zbbxr.tech` + `www` + `origin`; nginx (зеркало и origin) читает `/root/cert/vc01zbbxr.tech/`; certbot убран; продление через acme.sh webroot + reload nginx. `worker_rlimit_nofile` — в корне `nginx.conf`, не в `http`. `favicon.ico` зеркала скачивается с `https://www.debian.org/favicon.ico`. Cron ACL пишется в **файл** `/etc/cron.d/cdn-acl` через `tee … <<'EOF'` (не разрывать путь). HTTP/2: `listen 443 ssl http2` (не `http2 on`, это nginx ≥1.25). Сертификат `cdn.` по-прежнему в Certificate Manager. Остальное как в ред. 5: **8080 открыт всем**, **SSH без обязательного ключа**, **подписка OFF**, полный порядок CDN.
