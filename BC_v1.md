@@ -1,4 +1,4 @@
-Ниже полная BC_v1, **редакция 6**. Добавлено: один сертификат ACME панели 3x-ui на три имени; nginx (зеркало и origin) и при желании инбаунд берут **те же файлы**. Отдельный certbot на ВМ не нужен. Сертификат CDN (`cdn.`) по-прежнему в Certificate Manager.
+Ниже полная BC_v1, **редакция 6**. В начале UFW выключается (пункт 2), правила — в пункте 13. Один сертификат ACME панели на три имени; nginx берёт те же файлы. Сертификат CDN (`cdn.`) — Certificate Manager.
 
 ---
 
@@ -67,6 +67,15 @@ Xray → routing → direct или каскад
 ---
 
 ## 2. Подготовка ОС
+
+UFW на время установки **выключить**. Let's Encrypt проверяет домен по **порту 80 с интернета**; включённый UFW с deny incoming даёт `Timeout during connect`. Порты 22/80/443/8080 откроем явно в пункте 13.
+
+```bash
+sudo ufw disable
+sudo ufw status
+```
+
+Ожидается `Status: inactive`. Группу безопасности Yandex Cloud не отключать: входящие TCP 22, 80, 443, 8080 с `0.0.0.0/0` должны быть разрешены уже сейчас.
 
 ```bash
 apt update && apt upgrade -y
@@ -720,6 +729,8 @@ curl -i https://cdn.vc01zbbxr.tech/healthcheck.api/ | head -20
 
 ## 13. Firewall
 
+До этого UFW был **выключен** (пункт 2). Сейчас включаем с нужными портами. Сначала правила, потом enable — иначе можно отрезать SSH.
+
 ```bash
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
@@ -782,6 +793,7 @@ curl -sI https://origin.vc01zbbxr.tech/healthcheck.api/
 
 ### Чеклист
 
+- [ ] UFW выключен в начале (п. 2), в п. 13 включён: 22, 80, 443, **8080**; без 2096  
 - [ ] `vpnXX`, `PermitRootLogin no`  
 - [ ] sysctl / limits / BBR  
 - [ ] A-записи зеркала и origin  
@@ -796,7 +808,6 @@ curl -sI https://origin.vc01zbbxr.tech/healthcheck.api/
 - [ ] сертификат CDN в Certificate Manager (DNS)  
 - [ ] ресурс: источник `origin.…`, HTTPS, Host = origin, кеш выкл.  
 - [ ] CNAME `cdn.` → `*.topology.gslb.yccdn.ru`, IP в `yc.json`  
-- [ ] UFW: 22, 80, 443, **8080**; без 2096  
 - [ ] клиент: `fingerprint edge`, `alpn []`, GET-uplink, XMUX  
 - [ ] недельный cron кеша зеркала  
 
@@ -851,4 +862,4 @@ DNS: `full:cdn.vc01zbbxr.tech` через `77.88.8.8`. Routing: `udp/443 → blo
 
 ---
 
-Изменения этой редакции: **один ACME 3x-ui** на `vc01zbbxr.tech` + `www` + `origin`; nginx (зеркало и origin) читает `/root/cert/vc01zbbxr.tech/`; certbot убран; продление через acme.sh webroot + reload nginx. `worker_rlimit_nofile` — в корне `nginx.conf`, не в `http`. `favicon.ico` зеркала скачивается с `https://www.debian.org/favicon.ico`. Cron ACL пишется в **файл** `/etc/cron.d/cdn-acl` через `tee … <<'EOF'` (не разрывать путь). HTTP/2: `listen 443 ssl http2` (не `http2 on`, это nginx ≥1.25). Сертификат `cdn.` по-прежнему в Certificate Manager. Остальное как в ред. 5: **8080 открыт всем**, **SSH без обязательного ключа**, **подписка OFF**, полный порядок CDN.
+Изменения этой редакции: в **пункте 2** UFW выключается до конца установки, правила — в пункте 13. **Один ACME 3x-ui** на `vc01zbbxr.tech` + `www` + `origin`; nginx читает `/root/cert/vc01zbbxr.tech/`. `worker_rlimit_nofile` в корне `nginx.conf`. HTTP/2: `listen 443 ssl http2`. HTTP-01: порт 80 в группе безопасности облака; `--install-cert` только после успешного `--issue`.
