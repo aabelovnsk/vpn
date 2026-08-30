@@ -729,7 +729,7 @@ yc cdn provider list-activated
      **Основное имя нельзя изменить после создания.**  
 3. Блок **Дополнительно**:
    - **Переадресация клиентов** — сначала `Не использовать` (документация: HTTPS-редирект включают **после** привязки сертификата).  
-   - **Тип сертификата** — `Сертификат из Certificate Manager`, выбрать сертификат из шага 13.3.  
+   - **Тип сертификата** — `Сертификат из Certificate Manager`, выбрать сертификат из шага 13.3. Без этого HTTPS на `cdn.` отдаст служебный `*.yccdn.cloud.yandex.net`, браузер не примет имя.  
    - **Заголовок Host** — `Своё значение` = `origin.vc01zbbxr.tech`.  
      Документация: значение Host должно совпадать с виртуальным хостом источника.  
    - **Перенаправление запросов (Rewrite)** — выкл.  
@@ -782,10 +782,14 @@ cdn  CNAME  e1b83ae3********.topology.gslb.yccdn.ru.
 
 ```bash
 dig +short cdn.vc01zbbxr.tech CNAME
-# должен указать на *.topology.gslb.yccdn.ru
+# имя из консоли: *.topology.gslb.yccdn.ru или *.yccdn.cloud.yandex.net — оба нормальны
 
 dig +short cdn.vc01zbbxr.tech A
 # сверить IP с https://tech.cdn.yandex.net/prefixes/yc.json
+
+echo | openssl s_client -connect cdn.vc01zbbxr.tech:443 -servername cdn.vc01zbbxr.tech 2>/dev/null \
+  | openssl x509 -noout -subject -ext subjectAltName
+# должно быть DNS:cdn.vc01zbbxr.tech, не *.yccdn.cloud.yandex.net
 
 curl -I https://cdn.vc01zbbxr.tech/
 # визитка зеркала
@@ -793,6 +797,22 @@ curl -I https://cdn.vc01zbbxr.tech/
 curl -i https://cdn.vc01zbbxr.tech/healthcheck.api/ | head -20
 # ответ Xray, не страница 404 сайта
 ```
+
+В браузере открывай **только** `https://cdn.vc01zbbxr.tech`. Имя из CNAME (`*.yccdn.cloud.yandex.net` / `*.topology.gslb.yccdn.ru`) в адресную строку не вставляй.
+
+**Если браузер пишет, что сертификат относится к `*.yccdn.cloud.yandex.net`:** это служебный сертификат края CDN. Свой домен к нему не подходит. Значит, на ресурсе нет (или ещё не применился) сертификат из Certificate Manager на `cdn.vc01zbbxr.tech`.
+
+1. Certificate Manager: сертификат для **`cdn.vc01zbbxr.tech`**, статус **«Выпущен»** (не «Проверяется»). Проверка — только DNS (`_acme-challenge.cdn`). Тот же каталог, что у CDN-ресурса.  
+2. Cloud CDN → ресурс `cdn.vc01zbbxr.tech` → изменить основные настройки → **Тип сертификата** = `Сертификат из Certificate Manager` → выбрать этот сертификат. Не оставлять «Не использовать».  
+3. CLI:
+
+```bash
+yc certificate-manager certificate list
+yc cdn resource update cdn.vc01zbbxr.tech \
+  --cert-manager-ssl-cert-id <ID_СЕРТИФИКАТА>
+```
+
+4. Подождать до **15 минут**, снова `openssl` / браузер. После привязки сертификата можно включить переадресацию HTTP→HTTPS.
 
 Без запросов **90 дней** ресурс переходит в `Not active`.
 
